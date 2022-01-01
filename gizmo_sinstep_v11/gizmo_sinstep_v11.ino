@@ -36,7 +36,7 @@ const int amplitude = 15;
 float phase_z = -pi/2; // shift z sine wave by 1/4 of a cycle + an offset to fix some sort of persisting lag
 
 
-int step_size = 45; //set angle size of the step
+//int step_size = 5; //set angle size of the step
 
 int leg_servos[6][2] = { {0, 6}, //right legs: legs 1, 2, 3 {y, z} servos
                         {1, 7},
@@ -58,12 +58,14 @@ int current_angle[6][2] = { {90, 90}, //right legs: legs 1, 2, 3 {y, z} servos. 
 
 int side_offset[6] = {-1, -1, -1, 1, 1, 1}; //use to created mirrored motion for left-side legs
 
+int leg_offset_newYear[6] = {1, 1, 1, 1, -1, 1};
+
 //FOR NOW: no leg offset for v2. See if all move in tandem. Then, play with offset values to alter leg motions
 float leg_offset_v1[6] = {0, 0, 0, 0, 0, 0}; //use to created a delay between the start of each leg motion while walking
 
 //FOR NOW: no leg offset for v2. See if all move in tandem. Then, switch 2, 4, 6 to negative
-int leg_offset_v2[6] = {1, -1, 1, -1, 1, -1}; //used to switch leg 2, 4, 6 y motion to be reversed, so robot walks instead of all servos moving in parallel
-float phase_z_v2[6] = {0, pi, 0, pi, 0, pi};; // shift z sine wave for legs 2, 4, 6 so the step occurs at the right time for legs moving in opposite sync
+int leg_offset_v2[6] = {1, 1, 1, 1, 1, 1}; //used to switch leg 2, 4, 6 y motion to be reversed, so robot walks instead of all servos moving in parallel
+float phase_z_v2[6] = {0, 0, 0, 0, 0, 0};; // shift z sine wave for legs 2, 4, 6 so the step occurs at the right time for legs moving in opposite sync
 int leg_counter_offset__z_v2[6][2] = {0, 180, 0, 180, 0, 180}; //offset counter to shift the z curve for walk v2
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -107,6 +109,8 @@ void loop() {
  int Button_state_BL = digitalRead(Button_BL);
  int Button_state_BR = digitalRead(Button_BR);
 
+happy_new_year();
+//step_leg_forward_v2();
 //////////////////////////////////////////////////////////////////////////////////////////////////////
  while (Button_state_G == HIGH) {
    Serial.println("Green button = high");
@@ -164,6 +168,46 @@ void loop() {
 //void sting_or_kiss() { //uses ultrasonic sensor to either sting or kiss someone
 //  
 //}
+
+void happy_new_year() {
+  for (int leg = 0; leg < number_legs; leg++) //iterate over all legs
+     {
+      int leg_servo_y = leg_servos[leg][y];
+      pos_y = 90; //neutral position z
+      pwm.setPWM(leg_servo_y, 0, angleToPulse(pos_y)); //move to 90. stay there
+      current_angle[leg][y] = pos_y;
+     }
+     
+  for (int counter = -20; counter <= 20; counter++) 
+   {
+    for (int leg = 0; leg < number_legs; leg++) //iterate over all legs
+     {
+       int leg_servo_z = leg_servos[leg][z];
+
+       if (leg == 1) { //move second and fifth legs to wave in air
+        pos_z =  90 + -(leg_offset_v2[leg]*side_offset[leg]*abs(counter) + 30*leg_offset_newYear[leg]);
+        pwm.setPWM(leg_servo_z, 0, angleToPulse(pos_z));
+        current_angle[leg][z] = pos_z;
+       }
+
+       else if (leg == 4) {
+        pos_z =  90 + -(leg_offset_v2[leg]*side_offset[leg]*abs(counter) + 30*leg_offset_newYear[leg]);
+        pwm.setPWM(leg_servo_z, 0, angleToPulse(pos_z));
+        current_angle[leg][z] = pos_z;
+        Serial.println(pos_z);
+       }
+
+       else {
+       //Set z
+       pos_z = leg_offset_v2[leg]*side_offset[leg]*abs(counter) + 90;
+       //for legs 2, 5: alternate: move from 135 to 155 and back
+       pwm.setPWM(leg_servo_z, 0, angleToPulse(pos_z));
+       current_angle[leg][z] = pos_z;
+       }
+    }
+    delay(8);
+  }
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
