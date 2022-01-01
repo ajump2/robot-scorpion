@@ -1,72 +1,60 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
+#include "gizmo.h"
 
-int trigPin = 9;
-int echoPin = 8;
+int trigPin = TRIGPIN;
+int echoPin = ECHOPIN;
+int servoMin = SERVOMIN;
+int servoMax = SERVOMAX;
+int servoFreq = SERVO_FREQ;
 long distance;
 long duration;
 
-#define SERVOMIN 120
-#define SERVOMAX 630
-#define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
+
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-uint8_t servonum = 0;
-int starting_angle = 90;
-const int number_servos = 12; //number of servos in legs
-const int number_legs = 6;
-const int z = 0; //to reference the correct column in leg_servos (z motion)
-const int y = 1;
+uint8_t servonum = SERVO_NUM;
+int startingAngle = STARTING_ANGLE;
+const int numberServos = NUMBER_SERVOS; 
+const int numberLegs = NUMBER_LEGS;
+const int z = Z;
+const int y = Y;
 
-const int Button_G = 33; //set button pin for walk forward (green)
-const int Button_BL = 35; //set button pin for left pincer
-const int Button_BR = 32; //set button pin for right pincer
-const int Button_R = 34; //set button pin for left sting
+const int buttonG = BUTTON_G; 
+const int buttonBL = BUTTON_BL; 
+const int buttonBR = BUTTON_BR; 
+const int buttonR = BUTTON_R;
 
-const int stinger = 12; //set stinger servo to #13
-const int pincer_L = 13; //set pincer_L = servo #14
-const int pincer_R = 14; //set pincer_R = servo #15
-const int mouth = 15; //set mouth servo to #16
+const int stinger = STINGER; 
+const int pincerL = PINCER_L; 
+const int pincerR = PINCER_R;
+const int mouth = MOUTH; 
 
-const float pi = 3.141592653589793238462643383279502884197169399375105820974944592; //define pi
+const float pi = PI;
 
-int pos_z = 0;
-int pos_y = 0;
-const int amplitude = 15;
-float phase_z = -pi/2; // shift z sine wave by 1/4 of a cycle + an offset to fix some sort of persisting lag
+int posZ = POS_Z;
+int posY = POS_Y;
+const int amplitude = AMPLITUDE;
+float phaseZ = PHASE_Z; 
 
 
-//int step_size = 5; //set angle size of the step
+//int step_size = STEP_SIZE; //set angle size of the step
 
-int leg_servos[6][2] = { {0, 6}, //right legs: legs 1, 2, 3 {y, z} servos
-                        {1, 7},
-                        {2, 8},
+int legServos[6][2] = LEG_SERVOS;
 
-                        {3, 9}, //left legs: legs 4, 5, 6
-                        {4, 10},
-                        {5, 11}
-                        };
+int currentAngle[6][2] = CURRENT_ANGLE;
 
-int current_angle[6][2] = { {90, 90}, //right legs: legs 1, 2, 3 {y, z} servos. Set current angle
-                           {90, 90},
-                           {90, 90},
+int sideOffset[6] = SIDE_OFFSET; 
 
-                           {90, 90}, //left legs: legs 4, 5, 6
-                           {90, 90},
-                           {90, 90}
-                          };
-
-int side_offset[6] = {-1, -1, -1, 1, 1, 1}; //use to created mirrored motion for left-side legs
-
-int leg_offset_newYear[6] = {1, 1, 1, 1, -1, 1};
+int legOffsetNewYear[6] = LEG_OFFSET_NEW_YEAR;
 
 //FOR NOW: no leg offset for v2. See if all move in tandem. Then, play with offset values to alter leg motions
-float leg_offset_v1[6] = {0, 0, 0, 0, 0, 0}; //use to created a delay between the start of each leg motion while walking
+float legOffsetV1[6] = LEG_OFFSET_V1; //use to created a delay between the start of each leg motion while walking
 
 //FOR NOW: no leg offset for v2. See if all move in tandem. Then, switch 2, 4, 6 to negative
-int leg_offset_v2[6] = {1, 1, 1, 1, 1, 1}; //used to switch leg 2, 4, 6 y motion to be reversed, so robot walks instead of all servos moving in parallel
-float phase_z_v2[6] = {0, 0, 0, 0, 0, 0};; // shift z sine wave for legs 2, 4, 6 so the step occurs at the right time for legs moving in opposite sync
-int leg_counter_offset__z_v2[6][2] = {0, 180, 0, 180, 0, 180}; //offset counter to shift the z curve for walk v2
+int legOffsetV2[6] = LEG_OFFSET_V2; //used to switch leg 2, 4, 6 y motion to be reversed, so robot walks instead of all servos moving in parallel
+float phaseZV2[6] = PHASE_Z_V2; // shift z sine wave for legs 2, 4, 6 so the step occurs at the right time for legs moving in opposite sync
+int legCounterOffsetZV2[6][2] = LEG_COUNTER_OFFSET_Z_V2; //offset counter to shift the z curve for walk v2
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -76,17 +64,17 @@ void setup() {
  Serial.begin(115200);
  pwm.begin();
  pwm.setOscillatorFrequency(27000000);
- pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
- pinMode(Button_G, INPUT);
- pinMode(Button_BL, INPUT);
- pinMode(Button_BR, INPUT);
- pinMode(Button_R, INPUT);
+ pwm.setPWMFreq(servoFreq);  // Analog servos run at ~50 Hz updates
+ pinMode(buttonG, INPUT);
+ pinMode(buttonBL, INPUT);
+ pinMode(buttonBR, INPUT);
+ pinMode(buttonR, INPUT);
 
  //forward_step_initialization_v2();
  //delay(1000);
 
 
- for (int i = 0; i < number_servos; i++) { //initialize all servos to 90˚starting position
+ for (int i = 0; i < numberServos; i++) { //initialize all servos to 90˚starting position
      for (int j = 85; j < 90; j++) {
      pwm.setPWM(i, 0, angleToPulse(j));
      delay(10);
@@ -104,10 +92,10 @@ void setup() {
 
 void loop() {
 
- int Button_state_G = digitalRead(Button_G);
- int Button_state_R = digitalRead(Button_R);
- int Button_state_BL = digitalRead(Button_BL);
- int Button_state_BR = digitalRead(Button_BR);
+ int Button_state_G = digitalRead(buttonG);
+ int Button_state_R = digitalRead(buttonR);
+ int Button_state_BL = digitalRead(buttonBL);
+ int Button_state_BR = digitalRead(buttonBR);
 
 happy_new_year();
 //step_leg_forward_v2();
@@ -116,7 +104,7 @@ happy_new_year();
    Serial.println("Green button = high");
    step_leg_forward_v2();
    //delay(50);
-   Button_state_G = digitalRead(Button_G);
+   Button_state_G = digitalRead(buttonG);
    //Serial.print("Push button = "); Serial.println(Button_state_G);
  }
 
@@ -125,16 +113,16 @@ happy_new_year();
 //  if (Button_state_BL == HIGH) {
 //    Serial.println("blue-left button is HIGH");
 //    for (int i = 0; i < 30; i++) {
-//      pwm.setPWM(pincer_L, 0, angleToPulse(i)); //move pincer L to 30 degrees
-//      Button_state_BL = digitalRead(Button_BR);
+//      pwm.setPWM(pincerL, 0, angleToPulse(i)); //move pincer L to 30 degrees
+//      Button_state_BL = digitalRead(buttonBR);
 //      delay(5);
 //    }
 //  }
 //    else { //if not pressed, move pincer to 0
 //      Serial.println("blue-left button is LOW");
 //      for (int i = 0; i < 30; i++) {
-//        pwm.setPWM(pincer_L, 0, angleToPulse(0)); //move pincer L to start position
-//        Button_state_BL = digitalRead(Button_BL);
+//        pwm.setPWM(pincerL, 0, angleToPulse(0)); //move pincer L to start position
+//        Button_state_BL = digitalRead(buttonBL);
 //        delay(5);
 //      }
 //    }
@@ -144,15 +132,15 @@ happy_new_year();
 //  if (Button_state_BR == HIGH) {
 //    Serial.println("blue-right button is HIGH");
 //    for (int i = 0; i < 30; i++) {
-//      pwm.setPWM(pincer_R, 0, angleToPulse(i)); //move pincer R to 30 degrees
-//      Button_state_BR = digitalRead(Button_R);
+//      pwm.setPWM(pincerR, 0, angleToPulse(i)); //move pincer R to 30 degrees
+//      Button_state_BR = digitalRead(buttonR);
 //      delay(5);
 //    }
 //  }
 //  else { //if not pressed, move pincer to 0
 //      Serial.println("blue-right button is LOW");
-//      pwm.setPWM(pincer_R, 0, angleToPulse(0)); //move pincer R to start position
-//      Button_state_BR = digitalRead(Button_R);
+//      pwm.setPWM(pincerR, 0, angleToPulse(0)); //move pincer R to start position
+//      Button_state_BR = digitalRead(buttonR);
 //      delay(5);
 //      }
 }
@@ -170,39 +158,39 @@ happy_new_year();
 //}
 
 void happy_new_year() {
-  for (int leg = 0; leg < number_legs; leg++) //iterate over all legs
+  for (int leg = 0; leg < numberLegs; leg++) //iterate over all legs
      {
-      int leg_servo_y = leg_servos[leg][y];
-      pos_y = 90; //neutral position z
-      pwm.setPWM(leg_servo_y, 0, angleToPulse(pos_y)); //move to 90. stay there
-      current_angle[leg][y] = pos_y;
+      int leg_servo_y = legServos[leg][y];
+      posY = 90; //neutral position z
+      pwm.setPWM(leg_servo_y, 0, angleToPulse(posY)); //move to 90. stay there
+      currentAngle[leg][y] = posY;
      }
      
   for (int counter = -20; counter <= 20; counter++) 
    {
-    for (int leg = 0; leg < number_legs; leg++) //iterate over all legs
+    for (int leg = 0; leg < numberLegs; leg++) //iterate over all legs
      {
-       int leg_servo_z = leg_servos[leg][z];
+       int leg_servo_z = legServos[leg][z];
 
        if (leg == 1) { //move second and fifth legs to wave in air
-        pos_z =  90 + -(leg_offset_v2[leg]*side_offset[leg]*abs(counter) + 30*leg_offset_newYear[leg]);
-        pwm.setPWM(leg_servo_z, 0, angleToPulse(pos_z));
-        current_angle[leg][z] = pos_z;
+        posZ =  90 + -(legOffsetV2[leg]*sideOffset[leg]*abs(counter) + 30*legOffsetNewYear[leg]);
+        pwm.setPWM(leg_servo_z, 0, angleToPulse(posZ));
+        currentAngle[leg][z] = posZ;
        }
 
        else if (leg == 4) {
-        pos_z =  90 + -(leg_offset_v2[leg]*side_offset[leg]*abs(counter) + 30*leg_offset_newYear[leg]);
-        pwm.setPWM(leg_servo_z, 0, angleToPulse(pos_z));
-        current_angle[leg][z] = pos_z;
-        Serial.println(pos_z);
+        posZ =  90 + -(legOffsetV2[leg]*sideOffset[leg]*abs(counter) + 30*legOffsetNewYear[leg]);
+        pwm.setPWM(leg_servo_z, 0, angleToPulse(posZ));
+        currentAngle[leg][z] = posZ;
+        Serial.println(posZ);
        }
 
        else {
        //Set z
-       pos_z = leg_offset_v2[leg]*side_offset[leg]*abs(counter) + 90;
+       posZ = legOffsetV2[leg]*sideOffset[leg]*abs(counter) + 90;
        //for legs 2, 5: alternate: move from 135 to 155 and back
-       pwm.setPWM(leg_servo_z, 0, angleToPulse(pos_z));
-       current_angle[leg][z] = pos_z;
+       pwm.setPWM(leg_servo_z, 0, angleToPulse(posZ));
+       currentAngle[leg][z] = posZ;
        }
     }
     delay(8);
@@ -221,35 +209,35 @@ void step_leg_forward_v2() { //type 2 walk motion
 
    for (int counter = 0; counter <= 360; counter++) 
    {
-     for (int leg = 0; leg < number_legs; leg++) //iterate over all legs
+     for (int leg = 0; leg < numberLegs; leg++) //iterate over all legs
      {
-       int leg_servo_y = leg_servos[leg][y];
-       int leg_servo_z = leg_servos[leg][z];
+       int leg_servo_y = legServos[leg][y];
+       int leg_servo_z = legServos[leg][z];
 
          //Set y 
-         pos_y = leg_offset_v2[leg]*side_offset[leg]*amplitude*sin(counter*pi/180) + 90; //add leg_offset_v2[leg] to switch sine from +/- for legs 2, 4, 6
-         pwm.setPWM(leg_servo_y, 0, angleToPulse(pos_y));
-         Serial.print(pos_y); Serial.print(" -- "); Serial.println(pos_z);
-         current_angle[leg][y] = pos_y;
+         posY = legOffsetV2[leg]*sideOffset[leg]*amplitude*sin(counter*pi/180) + 90; //add legOffsetV2[leg] to switch sine from +/- for legs 2, 4, 6
+         pwm.setPWM(leg_servo_y, 0, angleToPulse(posY));
+         Serial.print(posY); Serial.print(" -- "); Serial.println(posZ);
+         currentAngle[leg][y] = posY;
 
          //Set z walk --> the legs that are moving in opposite directions will have z moving in same direction, but the part of the curve that gets chopped shifts by pi. 
          //Since the sine curve is automatically flipped upside down, the slope method works to shift z.
-         pos_z = side_offset[leg]*amplitude*sin(phase_z_v2[leg] + phase_z + (-32+counter)*pi/180) + 90; //include "-32" as offset to fix phase lag issue. phase_z_v2 is for legs 2, 4, 6 since their motion is opposite sync
-         if (side_offset[leg]*pos_z < 90)
+         posZ = sideOffset[leg]*amplitude*sin(phaseZV2[leg] + phaseZ + (-32+counter)*pi/180) + 90; //include "-32" as offset to fix phase lag issue. phaseZV2 is for legs 2, 4, 6 since their motion is opposite sync
+         if (sideOffset[leg]*posZ < 90)
          {
-           pwm.setPWM(leg_servo_z, 0, angleToPulse(pos_z));
-           current_angle[leg][z] = pos_z;
-           //Serial.print(pos_y); Serial.print(" -- "); Serial.println(pos_z);
-           //Serial.print("z_leg1 is "); Serial.println(current_angle[0][z]);
+           pwm.setPWM(leg_servo_z, 0, angleToPulse(posZ));
+           currentAngle[leg][z] = posZ;
+           //Serial.print(posY); Serial.print(" -- "); Serial.println(posZ);
+           //Serial.print("z_leg1 is "); Serial.println(currentAngle[0][z]);
            //delay(5);
          }
 
          else {
-           int pos_z_2 = 90; //if slope is negative. leg is on ground --> flattened curve
-           pwm.setPWM(leg_servo_z, 0, angleToPulse(pos_z_2)); 
-           current_angle[leg][z] = pos_z_2;
-           //Serial.print(pos_y); Serial.print(" -- "); Serial.println(pos_z);
-           Serial.print("z_leg1 is "); Serial.println(current_angle[0][z]);
+           int posZ_2 = 90; //if slope is negative. leg is on ground --> flattened curve
+           pwm.setPWM(leg_servo_z, 0, angleToPulse(posZ_2)); 
+           currentAngle[leg][z] = posZ_2;
+           //Serial.print(posY); Serial.print(" -- "); Serial.println(posZ);
+           Serial.print("z_leg1 is "); Serial.println(currentAngle[0][z]);
            //delay(5);
          }
      }
@@ -263,7 +251,7 @@ void step_leg_forward_v2() { //type 2 walk motion
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int angleToPulse(int ang) {
- int pulse = map(ang, 0, 180, SERVOMIN, SERVOMAX);
+ int pulse = map(ang, 0, 180, servoMin, servoMax);
  //Serial.print("Angle: "); Serial.print(ang);
  //Serial.print(" pulse: "); Serial.println(pulse);
  return pulse;
